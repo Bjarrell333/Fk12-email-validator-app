@@ -22,33 +22,34 @@ jobs:
         with:
           python-version: '3.x'
       
-      # 3. Upgrade pip and install dependencies including PyInstaller and Pillow.
+      # 3. Upgrade pip and install dependencies including PyInstaller, Pillow, dnspython, email_validator, and tqdm.
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           # If a requirements.txt exists, install its dependencies.
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          # Install PyInstaller for building the executable and Pillow to auto-convert PNG icons on macOS.
-          pip install pyinstaller Pillow
+          # Install required packages for building the executable.
+          pip install pyinstaller Pillow dnspython email_validator tqdm
 
-      # 4. Build the executable using PyInstaller.
+      # 4. Build the executable using PyInstaller (macOS version).
       - name: Build executable with PyInstaller (macOS version)
         run: |
           # macOS Build Command:
-          # - We use --onefile to bundle everything into a single file.
+          # - --onefile bundles everything into a single file.
           # - --windowed prevents a terminal window from opening.
-          # - --name email_validator_app produces an executable named "email_validator_app"
-          #   (this is different from the Windows version, where you might prefer spaces and .ico files).
-          # - --icon=icon.png is used here; Pillow will auto-convert the PNG to ICNS on macOS.
-          # - --add-data uses a colon (:) as the delimiter on macOS.
+          # - --name email_validator_app produces the "email_validator_app" executable.
+          # - --icon=icon.png (Pillow auto-converts PNG to ICNS on macOS).
+          # - --add-data uses a colon (:) as delimiter on macOS.
+          # - --hidden-import ensures PyInstaller includes any modules it might not detect.
           pyinstaller --onefile --windowed --name email_validator_app \
             --icon=icon.png \
             --add-data "icon.png:." \
             --add-data "header.png:." \
+            --hidden-import dns.resolver \
+            --hidden-import email_validator \
             email_validator_app.py
 
-          # Windows Build Command Example (commented out):
-          # If building on Windows, you might use an ICO file and semicolon as delimiter:
+          # Example Windows Build Command (commented out):
           # pyinstaller --onefile --windowed --name "FK12 Email Validator App" \
           #   --icon=icon.ico \
           #   --add-data "icon.ico;." \
