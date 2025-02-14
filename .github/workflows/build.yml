@@ -1,0 +1,47 @@
+name: Build macOS Executable
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: macos-latest
+
+    steps:
+      # 1. Check out the repository code.
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # 2. Set up Python.
+      - name: Set up Python 3.x
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      
+      # 3. Upgrade pip and install dependencies including PyInstaller.
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # Install project dependencies if requirements.txt exists.
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          # Install PyInstaller for building the executable.
+          pip install pyinstaller
+
+      # 4. Build the executable using PyInstaller.
+      - name: Build executable with PyInstaller
+        run: |
+          pyinstaller --onefile email_validator_app.py
+
+      # 5. List the contents of the dist folder for verification.
+      - name: List built files
+        run: ls -la dist
+
+      # 6. Upload the built executable as an artifact.
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: email-validator-app
+          path: dist/email_validator_app
