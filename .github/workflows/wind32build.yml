@@ -1,0 +1,54 @@
+name: Build Windows Executable
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      # 1. Check out the repository code.
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # 2. Set up Python.
+      - name: Set up Python 3.x
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+      
+      # 3. Upgrade pip and install dependencies including PyInstaller, Pillow, dnspython, email_validator, and tqdm.
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          # If a requirements.txt exists, install its dependencies.
+          if (Test-Path requirements.txt) { pip install -r requirements.txt }
+          # Install required packages for building the executable.
+          pip install pyinstaller Pillow dnspython email_validator tqdm
+
+      # 4. Build the executable using PyInstaller (Windows version).
+      - name: Build executable with PyInstaller (Windows version)
+        run: |
+          pyinstaller --onefile --windowed --name "FK12 Email Validator App" `
+            --icon=icon.ico `
+            --add-data "icon.ico;." `
+            --add-data "header.png;." `
+            --hidden-import dns.resolver `
+            --hidden-import email_validator `
+            email_validator_app.py
+
+      # 5. List the contents of the dist folder for verification.
+      - name: List built files
+        run: Get-ChildItem -Path dist -Recurse
+
+      # 6. Upload the built executable as an artifact.
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: email-validator-app-windows
+          path: dist/FK12 Email Validator App.exe
