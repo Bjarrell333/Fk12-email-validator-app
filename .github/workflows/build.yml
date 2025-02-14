@@ -26,22 +26,34 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          # If a requirements.txt exists, install dependencies from it.
+          # If a requirements.txt exists, install its dependencies.
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          # Install PyInstaller and Pillow (Pillow allows auto-conversion of PNG to ICNS on macOS).
+          # Install PyInstaller for building the executable and Pillow to auto-convert PNG icons on macOS.
           pip install pyinstaller Pillow
 
       # 4. Build the executable using PyInstaller.
       - name: Build executable with PyInstaller (macOS version)
         run: |
-          # For macOS:
-          # - Use PNG files (e.g., icon.png) because macOS prefers PNG over ICO.
-          # - Use a colon (:) as the delimiter in --add-data.
-          pyinstaller --onefile --windowed --name "FK12 Email Validator App" \
+          # macOS Build Command:
+          # - We use --onefile to bundle everything into a single file.
+          # - --windowed prevents a terminal window from opening.
+          # - --name email_validator_app produces an executable named "email_validator_app"
+          #   (this is different from the Windows version, where you might prefer spaces and .ico files).
+          # - --icon=icon.png is used here; Pillow will auto-convert the PNG to ICNS on macOS.
+          # - --add-data uses a colon (:) as the delimiter on macOS.
+          pyinstaller --onefile --windowed --name email_validator_app \
             --icon=icon.png \
             --add-data "icon.png:." \
             --add-data "header.png:." \
             email_validator_app.py
+
+          # Windows Build Command Example (commented out):
+          # If building on Windows, you might use an ICO file and semicolon as delimiter:
+          # pyinstaller --onefile --windowed --name "FK12 Email Validator App" \
+          #   --icon=icon.ico \
+          #   --add-data "icon.ico;." \
+          #   --add-data "header.png;." \
+          #   email_validator_app.py
 
       # 5. List the contents of the dist folder for verification.
       - name: List built files
