@@ -22,12 +22,14 @@ jobs:
         with:
           python-version: '3.x'
       
-      # 3. Upgrade pip and install dependencies including PyInstaller.
+      # 3. Upgrade pip and install dependencies including PyInstaller and Pillow.
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
+          # If a requirements.txt exists, install dependencies from it.
           if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install pyinstaller
+          # Install PyInstaller and Pillow (Pillow allows auto-conversion of PNG to ICNS on macOS).
+          pip install pyinstaller Pillow
 
       # 4. Build the executable using PyInstaller.
       - name: Build executable with PyInstaller (macOS version)
