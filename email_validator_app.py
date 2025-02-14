@@ -10,15 +10,45 @@ from PIL import Image, ImageTk
 import sys
 import os
 
-# Removed Windows-specific AppUserModelID code since this version is for macOS.
-# Original Windows code:
-# if sys.platform == "win32":
-#     from ctypes import windll
-#     windll.shell32.SetCurrentProcessExplicitAppUserModelID("FuelSales.EmailChecker")
+# OS-Specific settings for icons and header images
+if sys.platform == "win32":
+    # Windows: use an ICO file
+    if getattr(sys, 'frozen', False):
+        base_path = sys._MEIPASS
+        ICON_FILE = os.path.join(base_path, "icon.ico")
+        HEADER_FILE = os.path.join(base_path, "header.png")
+    else:
+        ICON_FILE = "icon.ico"
+        HEADER_FILE = "header.png"
+elif sys.platform == "darwin":
+    # macOS: use a PNG file (with Pillow auto-converting if needed)
+    if getattr(sys, 'frozen', False):
+        base_path = sys._MEIPASS
+        ICON_FILE = os.path.join(base_path, "icon.png")
+        HEADER_FILE = os.path.join(base_path, "header.png")
+    else:
+        ICON_FILE = "icon.png"
+        HEADER_FILE = "header.png"
+else:
+    # Assume Linux: use a PNG file
+    if getattr(sys, 'frozen', False):
+        base_path = sys._MEIPASS
+        ICON_FILE = os.path.join(base_path, "icon.png")
+        HEADER_FILE = os.path.join(base_path, "header.png")
+    else:
+        ICON_FILE = "icon.png"
+        HEADER_FILE = "header.png"
+
 
 class EmailValidatorApp:
     def __init__(self, root):
         self.root = root
+        
+        # Windows-specific: Set the Application User Model ID.
+        if sys.platform == "win32":
+            from ctypes import windll
+            windll.shell32.SetCurrentProcessExplicitAppUserModelID("FuelSales.EmailChecker")
+        
         self.root.title("FuelSales Email Checker")
         self.root.geometry("1200x900")
         self.root.minsize(1000, 800)  # Set minimum window size
@@ -27,25 +57,25 @@ class EmailValidatorApp:
         self.root.grid_rowconfigure(0, weight=1)
         self.root.grid_columnconfigure(0, weight=1)
 
-        # Handle paths for both development & PyInstaller
-        if getattr(sys, 'frozen', False):
-            base_path = sys._MEIPASS
-            # For macOS, use PNG for the icon (instead of ICO)
-            self.icon_path = os.path.join(base_path, "icon.png")
-            self.header_path = os.path.join(base_path, "header.png")
-        else:
-            # Changed from icon.ico to icon.png for macOS compatibility
-            self.icon_path = "icon.png"
-            self.header_path = "header.png"
+        # Set paths for icon and header images
+        self.icon_path = ICON_FILE
+        self.header_path = HEADER_FILE
 
-        # Set application icon for macOS using iconphoto
-        try:
-            icon_image = Image.open(self.icon_path)
-            self.icon_photo = ImageTk.PhotoImage(icon_image)
-            self.root.iconphoto(True, self.icon_photo)
-        except Exception as e:
-            print("Error loading macOS icon:", e)
-        # End of macOS-specific icon setup
+        # Set application icon based on OS
+        if sys.platform == "win32":
+            # Windows uses iconbitmap with an ICO file
+            try:
+                self.root.iconbitmap(self.icon_path)
+            except Exception as e:
+                print("Error loading Windows icon:", e)
+        else:
+            # macOS and Linux use iconphoto with PNG files
+            try:
+                icon_image = Image.open(self.icon_path)
+                self.icon_photo = ImageTk.PhotoImage(icon_image)
+                self.root.iconphoto(True, self.icon_photo)
+            except Exception as e:
+                print("Error loading icon:", e)
 
         # Style configuration
         self.setup_styles()
@@ -116,10 +146,6 @@ class EmailValidatorApp:
         self.style.configure('Results.Treeview.Heading',
                            font=('Helvetica', 12, 'bold'))
 
-    #
-    # UPDATED METHODS BELOW
-    #
-
     def create_header(self, parent):
         try:
             header_image = Image.open(self.header_path)
@@ -136,7 +162,6 @@ class EmailValidatorApp:
         ttk.Label(parent, text="Check Email(s)", style='Header.TLabel').grid(row=1, column=0, pady=(20,5), sticky="w")
         ttk.Label(parent, text="Or enter multiple emails separated by commas", style='SubHeader.TLabel').grid(row=2, column=0, pady=(0,10), sticky="w")
 
-        # Create a frame for the email input and buttons to ensure proper alignment
         input_frame = ttk.Frame(parent, style='Main.TFrame')
         input_frame.grid(row=3, column=0, columnspan=2, sticky="ew", pady=(0, 20))
         input_frame.grid_columnconfigure(0, weight=1)
@@ -152,7 +177,6 @@ class EmailValidatorApp:
         email_entry.grid(row=0, column=0, sticky="ew", padx=(0, 10))
         email_entry.bind('<Return>', lambda e: self.validate_single_email())
 
-        # Check Email button
         check_button = tk.Button(
             input_frame,
             text="Check Email(s)",
@@ -163,9 +187,8 @@ class EmailValidatorApp:
             padx=20,
             command=self.validate_single_email
         )
-        check_button.grid(row=0, column=1, padx=(0, 10))  # Padding to separate buttons
+        check_button.grid(row=0, column=1, padx=(0, 10))
 
-        # CSV Upload button
         upload_button = tk.Button(
             input_frame,
             text="Upload List (CSV)",
@@ -177,10 +200,6 @@ class EmailValidatorApp:
             command=self.upload_csv
         )
         upload_button.grid(row=0, column=2)
-
-    #
-    # END OF UPDATED METHODS
-    #
 
     def create_results_table(self, parent):
         table_frame = ttk.Frame(parent)
@@ -201,7 +220,6 @@ class EmailValidatorApp:
         self.tree.heading('Status', text='Result')
         self.tree.heading('Details', text='What This Means')
 
-        # Configure tags for different status types
         self.tree.tag_configure('good', background='#d4edda', foreground='#155724')
         self.tree.tag_configure('warning', background='#fff3cd', foreground='#856404')
         self.tree.tag_configure('error', background='#f8d7da', foreground='#721c24')
@@ -215,9 +233,7 @@ class EmailValidatorApp:
     def create_right_click_menu(self):
         self.context_menu = tk.Menu(self.root, tearoff=0)
         self.context_menu.add_command(label="Copy", command=self.copy_selection)
-        # Bind right-click to show menu
         self.tree.bind("<Button-3>", self.show_context_menu)
-        # Bind Ctrl+C for copy
         self.tree.bind("<Control-c>", lambda e: self.copy_selection())
 
     def show_context_menu(self, event):
@@ -255,7 +271,6 @@ class EmailValidatorApp:
             valid = validate_email(email, check_deliverability=False)
             email = valid.email
             domain = email.split('@')[1]
-            # Check MX Records
             try:
                 mx_records = dns.resolver.resolve(domain, 'MX')
                 mx_record = str(mx_records[0].exchange).rstrip('.')
@@ -263,7 +278,6 @@ class EmailValidatorApp:
                 return "Do Not Use", "This email won't work - the domain does not exist or cannot receive emails."
             except dns.resolver.LifetimeTimeout:
                 return "Try Again", "DNS lookup took too long. Please try again later."
-            # Perform SMTP Check
             try:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
                     sock.settimeout(10)
@@ -315,7 +329,7 @@ class EmailValidatorApp:
         elif status == "Try Again":
             tag = 'retry'
             status = "↻ " + status
-        else:  # "Do Not Use"
+        else:
             tag = 'error'
             status = "⊘ " + status
         self.tree.insert('', 0, values=(email, status, details), tags=(tag,))
@@ -367,10 +381,12 @@ class EmailValidatorApp:
                     writer.writerow(item['values'])
             messagebox.showinfo("Success", "Results exported successfully!")
 
+
 def main():
     root = tk.Tk()
     app = EmailValidatorApp(root)
     root.mainloop()
+
 
 if __name__ == "__main__":
     main()
