@@ -30,8 +30,16 @@ jobs:
           pip install pyinstaller
 
       # 4. Build the executable using PyInstaller.
-      - name: Build executable with PyInstaller
-        run: pyinstaller --onefile email_validator_app.py
+      - name: Build executable with PyInstaller (macOS version)
+        run: |
+          # For macOS:
+          # - Use PNG files (e.g., icon.png) because macOS prefers PNG over ICO.
+          # - Use a colon (:) as the delimiter in --add-data.
+          pyinstaller --onefile --windowed --name "FK12 Email Validator App" \
+            --icon=icon.png \
+            --add-data "icon.png:." \
+            --add-data "header.png:." \
+            email_validator_app.py
 
       # 5. List the contents of the dist folder for verification.
       - name: List built files
