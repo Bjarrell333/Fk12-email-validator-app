@@ -271,6 +271,8 @@ class EmailValidatorApp:
             valid = validate_email(email, check_deliverability=False)
             email = valid.email
             domain = email.split('@')[1]
+    
+            # Try to resolve MX records
             try:
                 mx_records = dns.resolver.resolve(domain, 'MX')
                 mx_record = str(mx_records[0].exchange).rstrip('.')
@@ -278,33 +280,47 @@ class EmailValidatorApp:
                 return "Do Not Use", "This email won't work - the domain does not exist or cannot receive emails."
             except dns.resolver.LifetimeTimeout:
                 return "Try Again", "DNS lookup took too long. Please try again later."
-            try:
-                with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-                    sock.settimeout(10)
-                    sock.connect((mx_record, 25))
-                    if sock.recv(1024):
-                        sock.send(b'HELO example.com\r\n')
+    
+            # Function to check email via SMTP (tries both ports)
+            def smtp_check(port):
+                try:
+                    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                        sock.settimeout(20)  # Increased timeout
+                        sock.connect((mx_record, port))
                         if sock.recv(1024):
-                            sock.send(f'MAIL FROM: <test@example.com>\r\n'.encode())
+                            sock.send(b'HELO example.com\r\n')
                             if sock.recv(1024):
-                                sock.send(f'RCPT TO: <{email}>\r\n'.encode())
-                                response = sock.recv(1024).decode()
-                                if "250" in response:
-                                    sock.send(f'RCPT TO: <nonexistent_{email}>\r\n'.encode())
-                                    catch_all_response = sock.recv(1024).decode()
-                                    if "250" in catch_all_response:
-                                        return "Double Check", "This domain accepts all emails, even fake ones. Best to verify with the recipient."
-                                    return "Good to Go", "This email is valid."
-                                elif "550" in response:
-                                    return "Do Not Use", "This email address does not exist."
-                                else:
-                                    return "Double Check", "Unclear response. Try sending a test email."
-            except socket.timeout:
-                return "Try Again", "The email checker took too long to respond. Try again."
-            except ConnectionRefusedError:
-                return "Double Check", "The email server isn't responding. Try sending a test email."
+                                sock.send(f'MAIL FROM: <test@example.com>\r\n'.encode())
+                                if sock.recv(1024):
+                                    sock.send(f'RCPT TO: <{email}>\r\n'.encode())
+                                    response = sock.recv(1024).decode()
+                                    if "250" in response:
+                                        sock.send(f'RCPT TO: <nonexistent_{email}>\r\n'.encode())
+                                        catch_all_response = sock.recv(1024).decode()
+                                        if "250" in catch_all_response:
+                                            return "Double Check", "This domain accepts all emails, even fake ones. Best to verify with the recipient."
+                                        return "Good to Go", "This email is valid."
+                                    elif "550" in response:
+                                        return "Do Not Use", "This email address does not exist."
+                                    else:
+                                        return "Double Check", "Unclear response. Try sending a test email."
+                except socket.timeout:
+                    return None  # Indicate timeout
+                except ConnectionRefusedError:
+                    return "Double Check", "The email server isn't responding. Try sending a test email."
+    
+            # Try port 25 first, retry with 587 if it times out
+            result = smtp_check(25)
+            if result is None:
+                result = smtp_check(587)
+                if result is None:
+                    return "Try Again", "Both port 25 and 587 timed out. Check firewall settings."
+    
+            return result
+    
         except EmailNotValidError:
             return "Do Not Use", "This doesn't look like a real email. Check for typos."
+
 
     def validate_single_email(self):
         emails = self.email_var.get().strip()
@@ -380,7 +396,6 @@ class EmailValidatorApp:
                     item = self.tree.item(item_id)
                     writer.writerow(item['values'])
             messagebox.showinfo("Success", "Results exported successfully!")
-
 
 def main():
     root = tk.Tk()
